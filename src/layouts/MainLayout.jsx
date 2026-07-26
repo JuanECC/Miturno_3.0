@@ -203,8 +203,11 @@ export default function MainLayout() {
         </div>
       </aside>
 
-      {/* Contenido principal */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* 🆕 Contenido principal - Click cierra sidebar en móvil */}
+      <div 
+        onClick={() => setSidebarOpen(false)}
+        style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+      >
         
         {/* Header */}
         <header style={{
@@ -218,7 +221,10 @@ export default function MainLayout() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarOpen(true);
+              }}
               style={{
                 width: '36px', height: '36px', borderRadius: '10px',
                 border: 'none', background: 'none', cursor: 'pointer',
@@ -232,7 +238,6 @@ export default function MainLayout() {
 
           {/* Acciones derecha */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {/* Campana (decorativa) */}
             <button style={{
               position: 'relative', width: '36px', height: '36px',
               borderRadius: '10px', border: 'none', background: 'none',
@@ -247,7 +252,6 @@ export default function MainLayout() {
               }} />
             </button>
 
-            {/* Toggle tema */}
             <button
               onClick={toggleDarkMode}
               style={{
