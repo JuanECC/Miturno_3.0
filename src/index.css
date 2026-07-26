@@ -256,6 +256,7 @@ textarea.input-modern {
 @media (min-width: 1024px) {
   .modo-tv .card { padding: 36px; }
 }
+
 /* ══════════════════════════════════════
    RECEPCIÓN — Layout responsive
    ══════════════════════════════════════ */
@@ -271,6 +272,7 @@ textarea.input-modern {
     grid-template-columns: 1fr 380px;
   }
 }
+
 /* ══════════════════════════════════════
    LAYOUT BASE
    ══════════════════════════════════════ */
@@ -289,9 +291,17 @@ body.dark .main-layout {
   background-color: #0F1117;
 }
 
+body.dark .main-content {
+  background-color: #0F1117;
+}
+
 body.dark .card {
   background-color: #1A1D27;
   border-color: #2A2F3D;
+}
+
+body.dark .card:hover {
+  border-color: #3A4050;
 }
 
 body.dark header {
@@ -313,7 +323,8 @@ body.dark select.input-modern {
 }
 
 body.dark .input-modern:focus {
-  background-color: #1A1D27;
+  background-color: #242838;
+  border-color: #3B82F6;
 }
 
 body.dark .input-modern::placeholder {
@@ -324,9 +335,13 @@ body.dark select.input-modern {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
+body.dark select.input-modern option {
+  background-color: #1A1D27;
+  color: #F3F4F6;
+}
+
 body.dark .page-title,
 body.dark .kpi-value,
-body.dark table td,
 body.dark .sidebar-title {
   color: #F3F4F6;
 }
@@ -335,43 +350,88 @@ body.dark .page-subtitle,
 body.dark .section-title,
 body.dark .kpi-label,
 body.dark .label,
-body.dark .empty-state,
-body.dark table th,
 body.dark .sidebar-subtitle,
-body.dark .sidebar-user-email,
-body.dark .btn-ghost,
-body.dark header button,
-body.dark aside p,
-body.dark aside span {
+body.dark .sidebar-user-email {
   color: #9CA3AF;
 }
 
-body.dark .sidebar-user-name {
-  color: #F3F4F6;
+body.dark .empty-state {
+  color: #6B7280;
+}
+
+body.dark .empty-state-text {
+  color: #6B7280;
+}
+
+/* ── Botones en modo oscuro ── */
+body.dark .btn-primary {
+  background-color: #3B82F6;
+  color: white;
 }
 
 body.dark .btn-secondary {
   background-color: #2A2F3D;
   color: #D1D5DB;
+  border: 1px solid #3A4050;
 }
 
 body.dark .btn-secondary:hover {
   background-color: #3A4050;
 }
 
-body.dark .modal-box {
-  background-color: #1A1D27;
-  border-color: #2A2F3D;
+body.dark .btn-danger {
+  background-color: #DC2626;
+  color: white;
 }
 
+body.dark .btn-ghost {
+  color: #9CA3AF;
+}
+
+body.dark .btn-ghost:hover {
+  background-color: #2A2F3D;
+  color: #F3F4F6;
+}
+
+body.dark .btn:disabled {
+  opacity: 0.4;
+}
+
+/* ── Badges en modo oscuro ── */
 body.dark .badge {
   color: #D1D5DB;
 }
 
-body.dark .header-search {
-  background-color: #1A1D27;
-  border-color: #2A2F3D;
+/* ── Skeleton en modo oscuro ── */
+body.dark .skeleton {
+  background: linear-gradient(90deg, #2A2F3D 25%, #3A4050 50%, #2A2F3D 75%);
 }
+
+/* ── Modal en modo oscuro ── */
+body.dark .modal-box {
+  background-color: #1A1D27;
+  border: 1px solid #2A2F3D;
+}
+
+body.dark .modal-header {
+  border-bottom-color: #2A2F3D;
+}
+
+/* ── Tablas en modo oscuro ── */
+body.dark table th {
+  color: #9CA3AF;
+}
+
+body.dark table td {
+  color: #D1D5DB;
+  border-bottom-color: #2A2F3D;
+}
+
+body.dark table tr {
+  border-bottom-color: #2A2F3D;
+}
+
+/* ── Sidebar en modo oscuro ── */
 body.dark aside {
   background-color: #1A1D27 !important;
 }
@@ -385,8 +445,13 @@ body.dark aside div[style*="borderTop"] {
 }
 
 body.dark aside a,
-body.dark aside p {
+body.dark aside p,
+body.dark aside span {
   color: #D1D5DB !important;
+}
+
+body.dark .sidebar-user-name {
+  color: #F3F4F6 !important;
 }
 
 body.dark aside div[style*="backgroundColor: rgb(249, 250, 251)"] {
@@ -397,6 +462,8 @@ body.dark aside div[style*="backgroundColor: rgb(239, 246, 255)"] {
   background-color: #1E2A4A !important;
   color: #93C5FD !important;
 }
+
+/* ── Header en modo oscuro ── */
 body.dark header {
   background-color: #1A1D27 !important;
   border-color: #2A2F3D !important;
@@ -409,4 +476,121 @@ body.dark header button {
 body.dark .header-search {
   background-color: #242838 !important;
   border-color: #2A2F3D !important;
+}
+
+/* ── Badges de nivel (N1-N5) en modo oscuro ── */
+body.dark span[style*="background-color: rgb(254, 242, 242)"] {
+  background-color: #3B0F0F !important;
+  color: #FCA5A5 !important;
+  border-color: #7F1D1D !important;
+}
+
+body.dark span[style*="background-color: rgb(255, 247, 237)"] {
+  background-color: #3B1F0A !important;
+  color: #FDBA74 !important;
+  border-color: #7C2D12 !important;
+}
+
+body.dark span[style*="background-color: rgb(254, 252, 232)"] {
+  background-color: #2D2A0A !important;
+  color: #FDE047 !important;
+  border-color: #854D0E !important;
+}
+
+body.dark span[style*="background-color: rgb(240, 253, 244)"] {
+  background-color: #0A3B1A !important;
+  color: #86EFAC !important;
+  border-color: #166534 !important;
+}
+
+body.dark span[style*="background-color: rgb(239, 246, 255)"] {
+  background-color: #0A1A3B !important;
+  color: #93C5FD !important;
+  border-color: #1E3A5F !important;
+}
+
+/* ── Cards con fondos de colores en modo oscuro ── */
+body.dark div[style*="background-color: rgb(240, 253, 244)"] {
+  background-color: #0A3B1A !important;
+  border-color: #166534 !important;
+  color: #86EFAC !important;
+}
+
+body.dark div[style*="background-color: rgb(254, 242, 242)"] {
+  background-color: #3B0F0F !important;
+  border-color: #7F1D1D !important;
+  color: #FCA5A5 !important;
+}
+
+body.dark div[style*="background-color: rgb(255, 247, 237)"] {
+  background-color: #3B1F0A !important;
+  border-color: #7C2D12 !important;
+  color: #FDBA74 !important;
+}
+
+body.dark div[style*="background-color: rgb(239, 246, 255)"] {
+  background-color: #0A1A3B !important;
+  border-color: #1E3A5F !important;
+  color: #93C5FD !important;
+}
+
+body.dark div[style*="background-color: rgb(249, 250, 251)"] {
+  background-color: #242838 !important;
+  border-color: #3A4050 !important;
+}
+
+/* ── Botones de filtro y acción en modo oscuro ── */
+body.dark button[style*="background: rgb(254, 242, 242)"] {
+  background: #3B0F0F !important;
+  color: #FCA5A5 !important;
+  border-color: #7F1D1D !important;
+}
+
+body.dark button[style*="background: rgb(240, 253, 244)"] {
+  background: #0A3B1A !important;
+  color: #86EFAC !important;
+  border-color: #166534 !important;
+}
+
+/* ── Badges con fondo blanco en modo oscuro ── */
+body.dark span[style*="background-color: rgb(255, 255, 255)"] {
+  background-color: #242838 !important;
+  border-color: #3A4050 !important;
+  color: #D1D5DB !important;
+}
+
+/* ── Mapa de camas en modo oscuro ── */
+body.dark div[style*="background-color: rgb(240, 253, 244)"][style*="border-radius: 8px"] {
+  background-color: #0A3B1A !important;
+  color: #86EFAC !important;
+  border-color: #166534 !important;
+}
+
+body.dark div[style*="background-color: rgb(254, 242, 242)"][style*="border-radius: 8px"] {
+  background-color: #3B0F0F !important;
+  color: #FCA5A5 !important;
+  border-color: #7F1D1D !important;
+}
+
+body.dark div[style*="background-color: rgb(255, 247, 237)"][style*="border-radius: 8px"] {
+  background-color: #3B1F0A !important;
+  color: #FDBA74 !important;
+  border-color: #7C2D12 !important;
+}
+
+/* ── KPIs con iconos en modo oscuro ── */
+body.dark div[style*="background-color: rgb(239, 246, 255)"][style*="border-radius: 12px"] {
+  background-color: #1E2A4A !important;
+}
+
+body.dark div[style*="background-color: rgb(254, 242, 242)"][style*="border-radius: 12px"] {
+  background-color: #3B0F0F !important;
+}
+
+body.dark div[style*="background-color: rgb(240, 253, 244)"][style*="border-radius: 12px"] {
+  background-color: #0A3B1A !important;
+}
+
+body.dark div[style*="background-color: rgb(255, 247, 237)"][style*="border-radius: 12px"] {
+  background-color: #3B1F0A !important;
 }
