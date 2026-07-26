@@ -5,8 +5,9 @@ import { logout } from '../services/authService';
 import {
   LayoutDashboard, ClipboardList, Stethoscope, Monitor,
   Users, LogOut, Menu, X, Sun, Moon,
-  UserCog, Bell, Hospital, Settings, FileText, BedDouble, Calendar
+  UserCog, Hospital, Settings, FileText, BedDouble, Calendar
 } from 'lucide-react';
+import Notificaciones from '../components/Notificaciones';
 
 const NAV_ITEMS = {
   admin: [
@@ -203,7 +204,7 @@ export default function MainLayout() {
         </div>
       </aside>
 
-      {/* 🆕 Contenido principal - Click cierra sidebar en móvil */}
+      {/* Contenido principal - Click cierra sidebar en móvil */}
       <div 
         onClick={() => setSidebarOpen(false)}
         style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
@@ -238,20 +239,10 @@ export default function MainLayout() {
 
           {/* Acciones derecha */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button style={{
-              position: 'relative', width: '36px', height: '36px',
-              borderRadius: '10px', border: 'none', background: 'none',
-              cursor: 'pointer', color: '#6B7280',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Bell size={18} />
-              <span style={{
-                position: 'absolute', top: '6px', right: '6px',
-                width: '8px', height: '8px', backgroundColor: '#EF4444',
-                borderRadius: '50%', border: '2px solid white'
-              }} />
-            </button>
+            {/* 🆕 Notificaciones */}
+            <Notificaciones />
 
+            {/* Toggle tema */}
             <button
               onClick={toggleDarkMode}
               style={{
