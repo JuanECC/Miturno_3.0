@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { useAuth } from '../hooks/useAuth';
 import { Bell, AlertTriangle, UserCheck, Calendar, Clock } from 'lucide-react';
 
 export default function Notificaciones() {
+  const { user } = useAuth();
   const [mostrar, setMostrar] = useState(false);
   const [criticos, setCriticos] = useState([]);
   const [ultimoLlamado, setUltimoLlamado] = useState(null);
@@ -12,79 +14,115 @@ export default function Notificaciones() {
 
   // Escuchar pacientes críticos en espera (N1-N2)
   useEffect(() => {
-    const q = query(
-      collection(db, 'pacientes'),
-      where('estado', '==', 'espera'),
-      where('nivel_prioridad', '<=', 2)
-    );
-    
-    const unsub = onSnapshot(q, (snap) => {
-      const criticosData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setCriticos(criticosData);
-    });
-    
-    return () => unsub();
-  }, []);
+    // Solo roles que pueden ver pacientes
+    if (!user || user.rol === 'pantalla') return;
+
+    try {
+      const q = query(
+        collection(db, 'pacientes'),
+        where('estado', '==', 'espera'),
+        where('nivel_prioridad', '<=', 2)
+      );
+      
+      const unsub = onSnapshot(q, 
+        (snap) => {
+          const criticosData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setCriticos(criticosData);
+        },
+        (error) => {
+          // Silenciar error de permisos o índice
+          console.warn('Notificaciones: Error al escuchar críticos:', error.message);
+        }
+      );
+      
+      return () => unsub();
+    } catch (err) {
+      console.warn('Notificaciones: No se pudo iniciar listener de críticos');
+    }
+  }, [user]);
 
   // Escuchar último llamado
   useEffect(() => {
-    const q = query(
-      collection(db, 'llamados'),
-      orderBy('timestamp', 'desc'),
-      limit(1)
-    );
-    
-    const unsub = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const llamado = snap.docs[0].data();
-        const haceCuanto = llamado.timestamp?.seconds 
-          ? Math.floor((Date.now() - llamado.timestamp.seconds * 1000) / 60000)
-          : null;
-        
-        setUltimoLlamado({
-          paciente: llamado.paciente,
-          consultorio: llamado.consultorio,
-          haceCuanto
-        });
-      }
-    });
-    
-    return () => unsub();
-  }, []);
+    if (!user) return;
+
+    try {
+      const q = query(
+        collection(db, 'llamados'),
+        orderBy('timestamp', 'desc'),
+        limit(1)
+      );
+      
+      const unsub = onSnapshot(q, 
+        (snap) => {
+          if (!snap.empty) {
+            const llamado = snap.docs[0].data();
+            const haceCuanto = llamado.timestamp?.seconds 
+              ? Math.floor((Date.now() - llamado.timestamp.seconds * 1000) / 60000)
+              : null;
+            
+            setUltimoLlamado({
+              paciente: llamado.paciente,
+              consultorio: llamado.consultorio,
+              haceCuanto
+            });
+          }
+        },
+        (error) => {
+          console.warn('Notificaciones: Error al escuchar llamados:', error.message);
+        }
+      );
+      
+      return () => unsub();
+    } catch (err) {
+      console.warn('Notificaciones: No se pudo iniciar listener de llamados');
+    }
+  }, [user]);
 
   // Escuchar próxima cita del día
   useEffect(() => {
-    const hoy = new Date();
-    const hoyStr = hoy.getFullYear() + '-' + 
-      String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
-      String(hoy.getDate()).padStart(2, '0');
-    const horaActual = String(hoy.getHours()).padStart(2, '0') + ':' + 
-                       String(hoy.getMinutes()).padStart(2, '0');
-    
-    const q = query(
-      collection(db, 'citas'),
-      where('fecha', '==', hoyStr),
-      where('estado', '==', 'pendiente'),
-      where('hora', '>=', horaActual),
-      orderBy('hora', 'asc'),
-      limit(1)
-    );
-    
-    const unsub = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const cita = snap.docs[0].data();
-        setProximaCita({
-          nombre: cita.nombre,
-          hora: cita.hora,
-          especialidad: cita.especialidad
-        });
-      } else {
-        setProximaCita(null);
-      }
-    });
-    
-    return () => unsub();
-  }, []);
+    // Solo roles que pueden ver citas
+    if (!user || !['admin', 'recepcionista'].includes(user.rol)) return;
+
+    try {
+      const hoy = new Date();
+      const hoyStr = hoy.getFullYear() + '-' + 
+        String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(hoy.getDate()).padStart(2, '0');
+      const horaActual = String(hoy.getHours()).padStart(2, '0') + ':' + 
+                         String(hoy.getMinutes()).padStart(2, '0');
+      
+      const q = query(
+        collection(db, 'citas'),
+        where('fecha', '==', hoyStr),
+        where('estado', '==', 'pendiente'),
+        where('hora', '>=', horaActual),
+        orderBy('hora', 'asc'),
+        limit(1)
+      );
+      
+      const unsub = onSnapshot(q, 
+        (snap) => {
+          if (!snap.empty) {
+            const cita = snap.docs[0].data();
+            setProximaCita({
+              nombre: cita.nombre,
+              hora: cita.hora,
+              especialidad: cita.especialidad
+            });
+          } else {
+            setProximaCita(null);
+          }
+        },
+        (error) => {
+          console.warn('Notificaciones: Error al escuchar citas:', error.message);
+        }
+      );
+      
+      return () => unsub();
+    } catch (err) {
+      console.warn('Notificaciones: No se pudo iniciar listener de citas');
+    }
+  }, [user]);
 
   // Calcular total de notificaciones
   useEffect(() => {
@@ -331,32 +369,6 @@ export default function Notificaciones() {
           </div>
         </>
       )}
-
-      {/* Estilos modo oscuro */}
-      <style>{`
-        body.dark div[style*="background-color: rgb(255, 255, 255)"] {
-          background-color: #1A1D27 !important;
-          border-color: #2A2F3D !important;
-        }
-        body.dark div[style*="background-color: rgb(254, 242, 242)"] {
-          background-color: #3B0F0F !important;
-        }
-        body.dark div[style*="background-color: rgb(239, 246, 255)"] {
-          background-color: #0A1A3B !important;
-        }
-        body.dark div[style*="background-color: rgb(240, 253, 244)"] {
-          background-color: #0A3B1A !important;
-        }
-        body.dark div[style*="color: rgb(153, 27, 27)"] {
-          color: #FCA5A5 !important;
-        }
-        body.dark div[style*="color: rgb(30, 64, 175)"] {
-          color: #93C5FD !important;
-        }
-        body.dark div[style*="color: rgb(6, 95, 70)"] {
-          color: #86EFAC !important;
-        }
-      `}</style>
     </div>
   );
 }
