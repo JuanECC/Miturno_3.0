@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
-import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,20 +15,14 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
-// Persistencia por pestaña (cada pestaña tiene su propia sesión)
-setPersistence(auth, browserSessionPersistence)
-  .then(() => console.log('🔒 Sesión independiente por pestaña'))
-  .catch((err) => console.error('Error configurando persistencia:', err));
+// Persistencia local (mantiene sesión al recargar, independiente por pestaña)
+setPersistence(auth, browserLocalPersistence)
+  .then(() => console.log('🔒 Sesión local'))
+  .catch(() => {});
 
 export const db = getFirestore(app);
 
-// Persistencia offline multi-pestaña
-enableMultiTabIndexedDbPersistence(db)
-  .then(() => console.log('✅ Modo offline multi-pestaña activado'))
-  .catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('⚠️ Usando memoria (otra pestaña ya tiene persistencia)');
-    } else if (err.code === 'unimplemented') {
-      console.warn('⚠️ Navegador no soporta persistencia');
-    }
-  });
+// Persistencia offline (una sola pestaña)
+enableIndexedDbPersistence(db)
+  .then(() => console.log('✅ Modo offline activado'))
+  .catch(() => {});

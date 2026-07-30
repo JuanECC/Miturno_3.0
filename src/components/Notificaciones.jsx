@@ -12,119 +12,98 @@ export default function Notificaciones() {
   const [proximaCita, setProximaCita] = useState(null);
   const [totalNotif, setTotalNotif] = useState(0);
 
-  // Escuchar pacientes críticos en espera (N1-N2)
+  // Escuchar pacientes críticos
   useEffect(() => {
-    // Solo roles que pueden ver pacientes
     if (!user || user.rol === 'pantalla') return;
 
-    try {
-      const q = query(
-        collection(db, 'pacientes'),
-        where('estado', '==', 'espera'),
-        where('nivel_prioridad', '<=', 2)
-      );
-      
-      const unsub = onSnapshot(q, 
-        (snap) => {
-          const criticosData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setCriticos(criticosData);
-        },
-        (error) => {
-          // Silenciar error de permisos o índice
-          console.warn('Notificaciones: Error al escuchar críticos:', error.message);
-        }
-      );
-      
-      return () => unsub();
-    } catch (err) {
-      console.warn('Notificaciones: No se pudo iniciar listener de críticos');
-    }
+    const q = query(
+      collection(db, 'pacientes'),
+      where('estado', '==', 'espera'),
+      where('nivel_prioridad', '<=', 2)
+    );
+    
+    const unsub = onSnapshot(q, 
+      (snap) => {
+        const criticosData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setCriticos(criticosData);
+      },
+      () => {}  // Silenciar error de permisos
+    );
+    
+    return () => unsub();
   }, [user]);
 
   // Escuchar último llamado
   useEffect(() => {
     if (!user) return;
 
-    try {
-      const q = query(
-        collection(db, 'llamados'),
-        orderBy('timestamp', 'desc'),
-        limit(1)
-      );
-      
-      const unsub = onSnapshot(q, 
-        (snap) => {
-          if (!snap.empty) {
-            const llamado = snap.docs[0].data();
-            const haceCuanto = llamado.timestamp?.seconds 
-              ? Math.floor((Date.now() - llamado.timestamp.seconds * 1000) / 60000)
-              : null;
-            
-            setUltimoLlamado({
-              paciente: llamado.paciente,
-              consultorio: llamado.consultorio,
-              haceCuanto
-            });
-          }
-        },
-        (error) => {
-          console.warn('Notificaciones: Error al escuchar llamados:', error.message);
+    const q = query(
+      collection(db, 'llamados'),
+      orderBy('timestamp', 'desc'),
+      limit(1)
+    );
+    
+    const unsub = onSnapshot(q, 
+      (snap) => {
+        if (!snap.empty) {
+          const llamado = snap.docs[0].data();
+          const haceCuanto = llamado.timestamp?.seconds 
+            ? Math.floor((Date.now() - llamado.timestamp.seconds * 1000) / 60000)
+            : null;
+          
+          setUltimoLlamado({
+            paciente: llamado.paciente,
+            consultorio: llamado.consultorio,
+            haceCuanto
+          });
         }
-      );
-      
-      return () => unsub();
-    } catch (err) {
-      console.warn('Notificaciones: No se pudo iniciar listener de llamados');
-    }
+      },
+      () => {}  // Silenciar error de permisos
+    );
+    
+    return () => unsub();
   }, [user]);
 
-  // Escuchar próxima cita del día
+  // Escuchar próxima cita
   useEffect(() => {
-    // Solo roles que pueden ver citas
     if (!user || !['admin', 'recepcionista'].includes(user.rol)) return;
 
-    try {
-      const hoy = new Date();
-      const hoyStr = hoy.getFullYear() + '-' + 
-        String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(hoy.getDate()).padStart(2, '0');
-      const horaActual = String(hoy.getHours()).padStart(2, '0') + ':' + 
-                         String(hoy.getMinutes()).padStart(2, '0');
-      
-      const q = query(
-        collection(db, 'citas'),
-        where('fecha', '==', hoyStr),
-        where('estado', '==', 'pendiente'),
-        where('hora', '>=', horaActual),
-        orderBy('hora', 'asc'),
-        limit(1)
-      );
-      
-      const unsub = onSnapshot(q, 
-        (snap) => {
-          if (!snap.empty) {
-            const cita = snap.docs[0].data();
-            setProximaCita({
-              nombre: cita.nombre,
-              hora: cita.hora,
-              especialidad: cita.especialidad
-            });
-          } else {
-            setProximaCita(null);
-          }
-        },
-        (error) => {
-          console.warn('Notificaciones: Error al escuchar citas:', error.message);
+    const hoy = new Date();
+    const hoyStr = hoy.getFullYear() + '-' + 
+      String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
+      String(hoy.getDate()).padStart(2, '0');
+    const horaActual = String(hoy.getHours()).padStart(2, '0') + ':' + 
+                       String(hoy.getMinutes()).padStart(2, '0');
+    
+    const q = query(
+      collection(db, 'citas'),
+      where('fecha', '==', hoyStr),
+      where('estado', '==', 'pendiente'),
+      where('hora', '>=', horaActual),
+      orderBy('hora', 'asc'),
+      limit(1)
+    );
+    
+    const unsub = onSnapshot(q, 
+      (snap) => {
+        if (!snap.empty) {
+          const cita = snap.docs[0].data();
+          setProximaCita({
+            nombre: cita.nombre,
+            hora: cita.hora,
+            especialidad: cita.especialidad
+          });
+        } else {
+          setProximaCita(null);
         }
-      );
-      
-      return () => unsub();
-    } catch (err) {
-      console.warn('Notificaciones: No se pudo iniciar listener de citas');
-    }
+      },
+      () => {}  // Silenciar error de permisos
+    );
+    
+    return () => unsub();
   }, [user]);
 
-  // Calcular total de notificaciones
+  // Calcular total
   useEffect(() => {
     let total = criticos.length;
     if (ultimoLlamado && ultimoLlamado.haceCuanto !== null && ultimoLlamado.haceCuanto < 5) {
@@ -135,7 +114,6 @@ export default function Notificaciones() {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Botón campana */}
       <button
         onClick={() => setMostrar(!mostrar)}
         style={{
@@ -149,8 +127,7 @@ export default function Notificaciones() {
           color: '#6B7280',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'color 0.15s ease'
+          justifyContent: 'center'
         }}
         title="Notificaciones"
       >
@@ -178,10 +155,8 @@ export default function Notificaciones() {
         )}
       </button>
 
-      {/* Dropdown */}
       {mostrar && (
         <>
-          {/* Overlay para cerrar */}
           <div
             onClick={() => setMostrar(false)}
             style={{
@@ -191,7 +166,6 @@ export default function Notificaciones() {
             }}
           />
           
-          {/* Panel de notificaciones */}
           <div style={{
             position: 'absolute',
             top: 'calc(100% + 8px)',
@@ -206,7 +180,6 @@ export default function Notificaciones() {
             zIndex: 50,
             padding: '8px'
           }}>
-            {/* Header */}
             <div style={{
               padding: '12px 16px',
               borderBottom: '1px solid #E5E7EB',
@@ -228,9 +201,7 @@ export default function Notificaciones() {
               )}
             </div>
 
-            {/* Contenido */}
             <div style={{ padding: '8px' }}>
-              {/* Pacientes críticos */}
               {criticos.length > 0 && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -277,7 +248,6 @@ export default function Notificaciones() {
                 </div>
               )}
 
-              {/* Último llamado */}
               {ultimoLlamado && ultimoLlamado.haceCuanto !== null && ultimoLlamado.haceCuanto < 5 && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -308,7 +278,6 @@ export default function Notificaciones() {
                 </div>
               )}
 
-              {/* Próxima cita */}
               {proximaCita && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -354,7 +323,6 @@ export default function Notificaciones() {
                 </div>
               )}
 
-              {/* Sin notificaciones */}
               {criticos.length === 0 && !ultimoLlamado && !proximaCita && (
                 <div style={{
                   textAlign: 'center',
