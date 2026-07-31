@@ -8,6 +8,7 @@ import {
   UserCog, Hospital, Settings, FileText, BedDouble, Calendar
 } from 'lucide-react';
 import Notificaciones from '../components/Notificaciones';
+import Chat from '../components/Chat';
 
 const NAV_ITEMS = {
   admin: [
@@ -56,28 +57,18 @@ export default function MainLayout() {
     try {
       const saved = localStorage.getItem('mt-theme');
       const isDark = saved === 'dark';
-      if (isDark) {
-        document.body.classList.add('dark');
-      } else {
-        document.body.classList.remove('dark');
-      }
+      if (isDark) document.body.classList.add('dark');
+      else document.body.classList.remove('dark');
       return isDark;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   });
 
   const toggleDarkMode = () => {
     const next = !darkMode;
     setDarkMode(next);
-    try {
-      localStorage.setItem('mt-theme', next ? 'dark' : 'light');
-    } catch {}
-    if (next) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
+    try { localStorage.setItem('mt-theme', next ? 'dark' : 'light'); } catch {}
+    if (next) document.body.classList.add('dark');
+    else document.body.classList.remove('dark');
   };
 
   const handleLogout = async () => {
@@ -91,19 +82,13 @@ export default function MainLayout() {
   return (
     <div className="main-layout" style={{ minHeight: '100vh', display: 'flex' }}>
       
-      {/* Overlay móvil */}
       {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 40,
-            backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)'
-          }}
-          className="lg:hidden"
-        />
+        <div onClick={() => setSidebarOpen(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 40,
+          backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)'
+        }} className="lg:hidden" />
       )}
 
-      {/* Sidebar */}
       <aside style={{
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50,
         width: '260px', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column',
@@ -112,7 +97,6 @@ export default function MainLayout() {
         transition: 'transform 0.3s ease'
       }} className="lg:translate-x-0 lg:static lg:z-auto">
         
-        {/* Logo */}
         <div style={{
           height: '64px', display: 'flex', alignItems: 'center', gap: '12px',
           padding: '0 20px', borderBottom: '1px solid #E5E7EB', flexShrink: 0
@@ -134,14 +118,11 @@ export default function MainLayout() {
           </div>
         </div>
 
-        {/* Navegación */}
         <nav style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             {navItems.map(item => (
               <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
+                key={item.to} to={item.to} end={item.end}
                 onClick={() => setSidebarOpen(false)}
                 style={({ isActive }) => ({
                   display: 'flex', alignItems: 'center', gap: '10px',
@@ -159,18 +140,15 @@ export default function MainLayout() {
           </div>
         </nav>
 
-        {/* Footer */}
         <div style={{ padding: '12px', borderTop: '1px solid #E5E7EB', flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '10px 12px', borderRadius: '12px',
-            backgroundColor: '#F9FAFB'
+            padding: '10px 12px', borderRadius: '12px', backgroundColor: '#F9FAFB'
           }}>
             <div style={{
               width: '32px', height: '32px', backgroundColor: '#EFF6FF',
               borderRadius: '10px', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', color: '#3B82F6',
-              fontWeight: 600, fontSize: '13px'
+              justifyContent: 'center', color: '#3B82F6', fontWeight: 600, fontSize: '13px'
             }}>
               {inicial}
             </div>
@@ -188,29 +166,19 @@ export default function MainLayout() {
                 {user?.email}
               </p>
             </div>
-            <button
-              onClick={handleLogout}
-              style={{
-                width: '28px', height: '28px', borderRadius: '8px',
-                border: 'none', background: 'none', cursor: 'pointer',
-                color: '#9CA3AF', display: 'flex', alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Cerrar sesión"
-            >
+            <button onClick={handleLogout} style={{
+              width: '28px', height: '28px', borderRadius: '8px',
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }} title="Cerrar sesión">
               <LogOut size={14} />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Contenido principal - Click cierra sidebar en móvil */}
-      <div 
-        onClick={() => setSidebarOpen(false)}
-        style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
-      >
+      <div onClick={() => setSidebarOpen(false)} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         
-        {/* Header */}
         <header style={{
           height: '64px', backgroundColor: '#FFFFFF',
           borderBottom: '1px solid #E5E7EB',
@@ -218,58 +186,39 @@ export default function MainLayout() {
           padding: '0 16px', position: 'sticky', top: 0, zIndex: 30
         }} className="lg:px-8">
           
-          {/* Botón menú móvil */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              className="lg:hidden"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSidebarOpen(true);
-              }}
-              style={{
-                width: '36px', height: '36px', borderRadius: '10px',
-                border: 'none', background: 'none', cursor: 'pointer',
-                color: '#6B7280', display: 'flex', alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
+            <button className="lg:hidden" onClick={(e) => { e.stopPropagation(); setSidebarOpen(true); }} style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
               <Menu size={20} />
             </button>
           </div>
 
-          {/* Acciones derecha */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {/* 🆕 Notificaciones */}
             <Notificaciones />
-
-            {/* Toggle tema */}
-            <button
-              onClick={toggleDarkMode}
-              style={{
-                width: '36px', height: '36px', borderRadius: '10px',
-                border: 'none', background: 'none', cursor: 'pointer',
-                color: '#6B7280', display: 'flex', alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title={darkMode ? 'Modo claro' : 'Modo oscuro'}
-            >
+            <button onClick={toggleDarkMode} style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }} title={darkMode ? 'Modo claro' : 'Modo oscuro'}>
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </div>
         </header>
 
-        {/* Contenido */}
-        <main
-          className="main-content"
-          style={{
-            flex: 1, padding: '24px 16px', maxWidth: '1400px',
-            margin: '0 auto', width: '100%'
-          }}
-        >
+        <main className="main-content" style={{
+          flex: 1, padding: '24px 16px', maxWidth: '1400px',
+          margin: '0 auto', width: '100%'
+        }}>
           <Outlet />
         </main>
         
       </div>
+
+      {/* 💬 Chat interno */}
+      <Chat />
     </div>
   );
 }

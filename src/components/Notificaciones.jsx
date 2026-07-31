@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
-import { Bell, AlertTriangle, UserCheck, Calendar, Clock } from 'lucide-react';
+import { Bell, AlertTriangle, UserCheck, Calendar, Clock, MessageCircle } from 'lucide-react';
 
 export default function Notificaciones() {
   const { user } = useAuth();
@@ -10,6 +10,7 @@ export default function Notificaciones() {
   const [criticos, setCriticos] = useState([]);
   const [ultimoLlamado, setUltimoLlamado] = useState(null);
   const [proximaCita, setProximaCita] = useState(null);
+  const [ultimoMensaje, setUltimoMensaje] = useState(null);
   const [totalNotif, setTotalNotif] = useState(0);
 
   // Escuchar pacientes críticos
@@ -27,7 +28,7 @@ export default function Notificaciones() {
         const criticosData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setCriticos(criticosData);
       },
-      () => {}  // Silenciar error de permisos
+      () => {}
     );
     
     return () => unsub();
@@ -58,7 +59,7 @@ export default function Notificaciones() {
           });
         }
       },
-      () => {}  // Silenciar error de permisos
+      () => {}
     );
     
     return () => unsub();
@@ -97,7 +98,41 @@ export default function Notificaciones() {
           setProximaCita(null);
         }
       },
-      () => {}  // Silenciar error de permisos
+      () => {}
+    );
+    
+    return () => unsub();
+  }, [user]);
+
+  // 🆕 Escuchar último mensaje del chat
+  useEffect(() => {
+    if (!user || user.rol === 'pantalla') return;
+    
+    const q = query(
+      collection(db, 'mensajes'),
+      orderBy('timestamp', 'desc'),
+      limit(1)
+    );
+    
+    const unsub = onSnapshot(q, 
+      (snap) => {
+        if (!snap.empty) {
+          const msg = snap.docs[0].data();
+          const haceCuanto = msg.timestamp?.seconds 
+            ? Math.floor((Date.now() - msg.timestamp.seconds * 1000) / 60000)
+            : null;
+          
+          if (haceCuanto !== null && haceCuanto < 10 && msg.autor !== (user?.nombre || user?.email)) {
+            setUltimoMensaje({
+              texto: msg.texto,
+              autor: msg.autor,
+              haceCuanto,
+              tipo: msg.tipo || 'global',
+            });
+          }
+        }
+      },
+      () => {}
     );
     
     return () => unsub();
@@ -106,11 +141,10 @@ export default function Notificaciones() {
   // Calcular total
   useEffect(() => {
     let total = criticos.length;
-    if (ultimoLlamado && ultimoLlamado.haceCuanto !== null && ultimoLlamado.haceCuanto < 5) {
-      total += 1;
-    }
+    if (ultimoLlamado && ultimoLlamado.haceCuanto !== null && ultimoLlamado.haceCuanto < 5) total += 1;
+    if (ultimoMensaje && ultimoMensaje.haceCuanto !== null && ultimoMensaje.haceCuanto < 5) total += 1;
     setTotalNotif(total);
-  }, [criticos, ultimoLlamado]);
+  }, [criticos, ultimoLlamado, ultimoMensaje]);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -202,6 +236,7 @@ export default function Notificaciones() {
             </div>
 
             <div style={{ padding: '8px' }}>
+              {/* Pacientes críticos */}
               {criticos.length > 0 && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -248,6 +283,43 @@ export default function Notificaciones() {
                 </div>
               )}
 
+              {/* 🆕 Último mensaje del chat */}
+              {ultimoMensaje && ultimoMensaje.haceCuanto !== null && ultimoMensaje.haceCuanto < 5 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginBottom: '8px',
+                    padding: '0 8px'
+                  }}>
+                    <MessageCircle size={14} style={{ color: '#8B5CF6' }} />
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#8B5CF6', textTransform: 'uppercase' }}>
+                      Nuevo mensaje
+                    </span>
+                  </div>
+                  <div style={{
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: '#F3E8FF',
+                    fontSize: '13px'
+                  }}>
+                    <div style={{ fontWeight: 500, color: '#6D28D9' }}>
+                      💬 {ultimoMensaje.autor}
+                    </div>
+                    <div style={{ color: '#6B7280', fontSize: '11px', marginTop: '2px' }}>
+                      {ultimoMensaje.texto.length > 50 
+                        ? ultimoMensaje.texto.substring(0, 50) + '...' 
+                        : ultimoMensaje.texto}
+                    </div>
+                    <div style={{ color: '#9CA3AF', fontSize: '10px', marginTop: '2px' }}>
+                      {ultimoMensaje.tipo === 'privado' ? '🔒 Chat privado' : '📢 Chat general'} · Hace {ultimoMensaje.haceCuanto} min
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Último llamado */}
               {ultimoLlamado && ultimoLlamado.haceCuanto !== null && ultimoLlamado.haceCuanto < 5 && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -278,6 +350,7 @@ export default function Notificaciones() {
                 </div>
               )}
 
+              {/* Próxima cita */}
               {proximaCita && (
                 <div style={{ marginBottom: '12px' }}>
                   <div style={{
@@ -323,7 +396,8 @@ export default function Notificaciones() {
                 </div>
               )}
 
-              {criticos.length === 0 && !ultimoLlamado && !proximaCita && (
+              {/* Sin notificaciones */}
+              {criticos.length === 0 && !ultimoLlamado && !proximaCita && !ultimoMensaje && (
                 <div style={{
                   textAlign: 'center',
                   padding: '20px',

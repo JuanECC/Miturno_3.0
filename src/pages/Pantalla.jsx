@@ -22,6 +22,7 @@ export default function Pantalla() {
   const [modoTV, setModoTV] = useState(false);
   const [tickerIdx, setTickerIdx] = useState(0);
   const [llamadoActual, setLlamadoActual] = useState(null);
+  const [licencia, setLicencia] = useState('hospital');
   const [config, setConfig] = useState({
     alertasActivas: true,
     vozTipo: 'femenino',
@@ -30,11 +31,12 @@ export default function Pantalla() {
     tiempoAlerta: 10,
   });
 
-  // Escuchar configuración desde Firestore en tiempo real
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'configuracion', 'global'), (snap) => {
       if (snap.exists()) {
-        setConfig(prev => ({ ...prev, ...snap.data() }));
+        const data = snap.data();
+        setConfig(prev => ({ ...prev, ...data }));
+        if (data.licencia) setLicencia(data.licencia);
       }
     }, (err) => {
       console.error('Error escuchando configuración:', err);
@@ -42,13 +44,11 @@ export default function Pantalla() {
     return () => unsub();
   }, []);
 
-  // Reloj
   useEffect(() => {
     const timer = setInterval(() => setAhora(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Ticker
   useEffect(() => {
     const timer = setInterval(() => {
       setTickerIdx(prev => (prev + 1) % MENSAJES_TICKER.length);
@@ -56,9 +56,8 @@ export default function Pantalla() {
     return () => clearInterval(timer);
   }, []);
 
-  // Pacientes en espera
   useEffect(() => {
-    const q = query(collection(db, 'pacientes'), where('estado', '==', 'espera'));
+    const q = query(collection(db, 'pacientes'), where('estado', 'in', ['espera', 'en consulta']));
     return onSnapshot(q, (snap) => {
       const ahoraMs = Date.now();
       const lista = snap.docs
@@ -69,12 +68,16 @@ export default function Pantalla() {
             : 0;
           return { id: d.id, ...p, minutos };
         })
-        .sort((a, b) => a.nivel_prioridad - b.nivel_prioridad || a.minutos - b.minutos);
+        .sort((a, b) => {
+          if (licencia === 'clinica') {
+            return (a.numero_turno || 999) - (b.numero_turno || 999);
+          }
+          return a.nivel_prioridad - b.nivel_prioridad || a.minutos - b.minutos;
+        });
       setPacientes(lista);
     });
-  }, []);
+  }, [licencia]);
 
-  // Llamados del doctor
   useEffect(() => {
     const q = query(
       collection(db, 'llamados'),
@@ -88,7 +91,6 @@ export default function Pantalla() {
         const llamado = docData.data();
         setLlamadoActual(llamado);
 
-        // 🔊 VOZ: Anunciar al paciente con config de Firestore
         if (window.speechSynthesis && config.alertasActivas) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(`${llamado.paciente}, pase a ${llamado.consultorio}.`);
@@ -117,12 +119,8 @@ export default function Pantalla() {
           }
         }
 
-        // Ocultar después del tiempo configurado
         const timer = setTimeout(() => setLlamadoActual(null), config.tiempoAlerta * 1000);
-
-        // Marcar como inactivo
         updateDoc(doc(db, 'llamados', docData.id), { activo: false }).catch(() => {});
-
         return () => clearTimeout(timer);
       }
     });
@@ -150,7 +148,6 @@ export default function Pantalla() {
 
   return (
     <div className="page-container">
-      {/* ═══════════════ ALERTA DE PACIENTE LLAMADO ═══════════════ */}
       {llamadoActual && (
         <div style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -193,7 +190,6 @@ export default function Pantalla() {
         </div>
       )}
 
-      {/* Overlay */}
       {llamadoActual && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99,
@@ -202,7 +198,6 @@ export default function Pantalla() {
         }} />
       )}
 
-      {/* ── HEADER ── */}
       <div className="card" style={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
         gap: '12px', padding: modoTV ? '16px 20px' : '20px'
@@ -216,27 +211,30 @@ export default function Pantalla() {
             🏥
           </div>
           <div>
-            <p style={{ fontWeight: 600, color: '#1F2937', fontSize: '15px' }}>Sala de Espera</p>
+            <p style={{ fontWeight: 600, color: '#1F2937', fontSize: '15px' }}>
+              Sala de Espera{licencia === 'clinica' ? ' · Consultorios' : ''}
+            </p>
             <p style={{ fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '6px', height: '6px', backgroundColor: '#22C55E', borderRadius: '50%' }} />
-              Actualización en tiempo real
+              Actualización en tiempo real{licencia === 'clinica' ? ' · Orden de llegada' : ''}
             </p>
           </div>
         </div>
 
-        {/* Contadores */}
         <div style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-          {[1, 2, 3, 4, 5].map(n => (
-            <div key={n} style={{
-              padding: modoTV ? '8px 16px' : '8px 12px',
-              textAlign: 'center', borderRight: '1px solid #E5E7EB',
-              backgroundColor: contadores[n] > 0 ? fondosNivel(n) : 'transparent',
-              opacity: contadores[n] > 0 ? 1 : 0.5
-            }}>
-              <div style={{ fontSize: modoTV ? '28px' : '20px', fontWeight: 700, fontFamily: 'monospace', color: coloresNivel(n) }}>{contadores[n]}</div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>N{n}</div>
-            </div>
-          ))}
+          {licencia === 'hospital' ? (
+            [1, 2, 3, 4, 5].map(n => (
+              <div key={n} style={{
+                padding: modoTV ? '8px 16px' : '8px 12px',
+                textAlign: 'center', borderRight: '1px solid #E5E7EB',
+                backgroundColor: contadores[n] > 0 ? fondosNivel(n) : 'transparent',
+                opacity: contadores[n] > 0 ? 1 : 0.5
+              }}>
+                <div style={{ fontSize: modoTV ? '28px' : '20px', fontWeight: 700, fontFamily: 'monospace', color: coloresNivel(n) }}>{contadores[n]}</div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>N{n}</div>
+              </div>
+            ))
+          ) : null}
           <div style={{ padding: modoTV ? '8px 16px' : '8px 12px', textAlign: 'center', backgroundColor: '#F9FAFB' }}>
             <div style={{ fontSize: modoTV ? '28px' : '20px', fontWeight: 700, fontFamily: 'monospace', color: '#1F2937' }}>{total}</div>
             <div style={{ fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>Total</div>
@@ -259,7 +257,6 @@ export default function Pantalla() {
         </div>
       </div>
 
-      {/* ── LISTA DE PACIENTES ── */}
       <div style={{ maxWidth: modoTV ? '100%' : '900px', margin: '0 auto', width: '100%' }}>
         {pacientes.length === 0 ? (
           <div className="empty-state" style={{ minHeight: '300px' }}>
@@ -269,17 +266,19 @@ export default function Pantalla() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {pacientes.map((p, i) => {
-              const retrasado = p.minutos > (TIEMPOS_MAX[p.nivel_prioridad] ?? 120);
-              const esSiguiente = i === 0;
+              const enConsulta = p.estado === 'en consulta';
+              const retrasado = !enConsulta && p.minutos > (TIEMPOS_MAX[p.nivel_prioridad] ?? 120);
+              const esSiguiente = i === 0 && !enConsulta;
               const n = p.nivel_prioridad || 5;
               return (
                 <div key={p.id} className="card"
                   style={{
                     display: 'flex', alignItems: 'center', gap: '14px',
                     padding: modoTV ? '20px' : '16px',
-                    borderLeft: `5px solid ${coloresNivel(n)}`,
-                    borderColor: esSiguiente ? '#BFDBFE' : '#E5E7EB',
-                    backgroundColor: esSiguiente ? '#F8FAFC' : '#FFFFFF'
+                    borderLeft: `5px solid ${enConsulta ? '#EA580C' : coloresNivel(n)}`,
+                    borderColor: enConsulta ? '#FED7AA' : (esSiguiente ? '#BFDBFE' : '#E5E7EB'),
+                    backgroundColor: enConsulta ? '#FFF7ED' : (esSiguiente ? '#F8FAFC' : '#FFFFFF'),
+                    opacity: enConsulta ? 0.9 : 1,
                   }}
                 >
                   <div style={{
@@ -287,18 +286,40 @@ export default function Pantalla() {
                     borderRadius: '50%', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', fontSize: '14px', fontWeight: 700,
                     fontFamily: 'monospace', flexShrink: 0,
-                    backgroundColor: esSiguiente ? '#3B82F6' : '#F3F4F6',
-                    color: esSiguiente ? 'white' : '#6B7280'
+                    backgroundColor: enConsulta ? '#EA580C' : (esSiguiente ? '#3B82F6' : '#F3F4F6'),
+                    color: enConsulta ? 'white' : (esSiguiente ? 'white' : '#6B7280')
                   }}>
-                    {i + 1}
+                    {enConsulta ? '🩺' : (licencia === 'clinica' && p.numero_turno ? p.numero_turno : i + 1)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      {esSiguiente && <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>→ Siguiente</span>}
+                      {enConsulta && (
+                        <span className="badge" style={{
+                          backgroundColor: '#FFF7ED', color: '#EA580C',
+                          fontWeight: 600, fontSize: modoTV ? '13px' : '10px',
+                          border: '1px solid #FED7AA'
+                        }}>
+                          🩺 En consulta{p.doctor_asignado ? ` · Dr(a). ${p.doctor_asignado.split(' ')[0]}` : p.atendido_por ? ` · ${p.atendido_por.split(' ')[0]}` : ''}
+                        </span>
+                      )}
+                      {!enConsulta && esSiguiente && <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>→ Siguiente</span>}
                       <span style={{ fontWeight: 600, color: '#1F2937', fontSize: modoTV ? '20px' : '15px' }}>{p.nombre}</span>
-                      <span className="badge" style={{ backgroundColor: fondosNivel(n), color: coloresNivel(n), border: `1px solid ${coloresNivel(n)}`, fontSize: modoTV ? '13px' : '11px' }}>
-                        N{n} · {NOMBRES_NIVEL[n]}
-                      </span>
+                      {licencia === 'clinica' && p.doctor_asignado ? (
+                        <>
+                          <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#3B82F6', border: '1px solid #BFDBFE', fontSize: modoTV ? '13px' : '11px' }}>
+                            👨‍⚕️ {p.doctor_asignado}
+                          </span>
+                          {p.numero_turno && (
+                            <span className="badge" style={{ backgroundColor: '#F3F4F6', color: '#1F2937', border: '1px solid #D1D5DB', fontSize: modoTV ? '13px' : '11px', fontWeight: 700 }}>
+                              🔢 T{p.numero_turno}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="badge" style={{ backgroundColor: fondosNivel(n), color: coloresNivel(n), border: `1px solid ${coloresNivel(n)}`, fontSize: modoTV ? '13px' : '11px' }}>
+                          N{n} · {NOMBRES_NIVEL[n]}
+                        </span>
+                      )}
                     </div>
                     <p style={{ fontSize: modoTV ? '14px' : '12px', color: '#6B7280', marginTop: '2px' }}>
                       {p.edad} años · {p.especialidad || 'General'}
@@ -312,10 +333,10 @@ export default function Pantalla() {
                   <div style={{
                     textAlign: 'right', flexShrink: 0, fontFamily: 'monospace',
                     fontSize: modoTV ? '16px' : '13px',
-                    color: retrasado ? '#DC2626' : '#6B7280',
-                    fontWeight: retrasado ? 700 : 400
+                    color: enConsulta ? '#EA580C' : (retrasado ? '#DC2626' : '#6B7280'),
+                    fontWeight: enConsulta ? 500 : (retrasado ? 700 : 400)
                   }}>
-                    {p.minutos} min
+                    {enConsulta ? 'En curso' : `${p.minutos} min`}
                     {retrasado && <span style={{ display: 'block', fontSize: '10px' }}>⚠ Demorado</span>}
                   </div>
                 </div>
@@ -333,7 +354,6 @@ export default function Pantalla() {
         </div>
       </div>
 
-      {/* ── TICKER INFERIOR ── */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         backgroundColor: '#3B82F6', color: 'white', padding: '10px 0',
