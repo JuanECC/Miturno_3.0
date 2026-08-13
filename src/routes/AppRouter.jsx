@@ -70,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'historial', element: <HistorialClinico /> },
       { path: 'pacientes-activos', element: <PacientesActivos /> },
       { path: 'pantalla', element: <Pantalla /> },
+      { path: 'consulta/:pacienteId', element: <Consulta /> },
     ],
   },
 
