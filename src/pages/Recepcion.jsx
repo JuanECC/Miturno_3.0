@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast';
 import { sugerirTriageIA } from '../services/iaService';
 import Mito from '../components/Mito';
 
+
 const ESPECIALIDADES = ['Medicina General', 'Ginecología', 'Pediatría', 'Cardiología', 'Traumatología', 'Neurología'];
 
 const RANGOS_VITALES = {
@@ -77,7 +78,6 @@ export default function Recepcion() {
   const [citasDelDia, setCitasDelDia] = useState([]);
   const [mostrarPanelCitas, setMostrarPanelCitas] = useState(false);
 
-  // 🆕 Estados para modo clínica
   const [doctores, setDoctores] = useState([]);
   const [doctorSeleccionado, setDoctorSeleccionado] = useState('');
   const [numeroTurno, setNumeroTurno] = useState(null);
@@ -98,7 +98,6 @@ export default function Recepcion() {
     return () => unsub();
   }, []);
 
-  // 🆕 Cargar doctores (solo modo clínica)
   useEffect(() => {
     if (licencia !== 'clinica') return;
     const q = query(collection(db, 'usuarios'), where('rol', '==', 'doctor'));
@@ -109,7 +108,6 @@ export default function Recepcion() {
     return () => unsub();
   }, [licencia]);
 
-  // 🆕 Calcular número de turno del día
   useEffect(() => {
     if (licencia !== 'clinica' || !doctorSeleccionado) { setNumeroTurno(null); return; }
     const hoy = new Date();
@@ -366,7 +364,6 @@ export default function Recepcion() {
               <div><label className="label">Edad *</label><input type="number" value={form.edad} onChange={e => setForm({ ...form, edad: e.target.value })} placeholder="0" min="0" max="120" className="input-modern" /></div>
               <div><label className="label">Especialidad</label><select value={form.especialidad} onChange={e => setForm({ ...form, especialidad: e.target.value })} className="input-modern">{ESPECIALIDADES.map(e => <option key={e}>{e}</option>)}</select></div>
               
-              {/* 🆕 Selector de doctor (solo modo clínica) */}
               {licencia === 'clinica' && (
                 <div>
                   <label className="label">Seleccionar doctor *</label>
@@ -499,7 +496,7 @@ export default function Recepcion() {
         </div>
       </div>
 
-      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 100 }}>
+      <div style={{ position: 'fixed', bottom: '24px', right: '90px', zIndex: 90 }}>
         <Mito estado={mitoEstado} mensaje={mitoMensaje} onDiagnosticar={pedirSugerenciaIA} />
       </div>
     </div>
