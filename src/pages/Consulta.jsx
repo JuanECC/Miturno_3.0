@@ -4,7 +4,7 @@ import { db } from '../firebase/config';
 import {
   doc, getDoc, updateDoc, serverTimestamp,
   collection, addDoc, query, where, onSnapshot,
-  orderBy, limit, getDocs
+  orderBy, limit, getDocs, deleteDoc
 } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/Toast';
@@ -13,7 +13,8 @@ import ModalCamas from '../components/ModalCamas';
 import { generarNotaMedica } from '../services/iaService';
 import {
   ArrowLeft, Activity, ClipboardList, FileText,
-  Pill, FlaskConical, History, X, CheckCircle2, RotateCcw
+  Pill, FlaskConical, History, X, CheckCircle2, RotateCcw,
+  Trash2, Pencil, Plus
 } from 'lucide-react';
 
 const TABS = [
@@ -80,6 +81,8 @@ export default function Consulta() {
   const [estudios, setEstudios] = useState([]);
   const [nuevoEstudio, setNuevoEstudio] = useState({ tipo: 'laboratorio', descripcion: '', prioridad: 'normal' });
   const [guardandoEstudio, setGuardandoEstudio] = useState(false);
+  const [estudiosSugeridos, setEstudiosSugeridos] = useState([]);
+  const [editandoEstudioId, setEditandoEstudioId] = useState(null);
 
   // Seguimiento
   const [seguimientos, setSeguimientos] = useState([]);
@@ -228,8 +231,9 @@ export default function Consulta() {
           frecuencia: i.frecuencia,
         })),
       };
-      const nota = await generarNotaMedica(datosParaIA);
-      setNotaGenerada(nota);
+      const resultado = await generarNotaMedica(datosParaIA);
+      setNotaGenerada(resultado.nota);
+      setEstudiosSugeridos(resultado.estudios_sugeridos || []);
       setEditandoNota(true);
       addToast('Nota generada por IA', 'success', 3000, '🤖 Nota médica');
     } catch (err) { console.error('Error generando nota:', err); addToast('No se pudo generar la nota', 'error', 4000, 'Error'); }
@@ -253,17 +257,76 @@ export default function Consulta() {
     } catch (err) { console.error('Error guardando nota:', err); addToast('Error al guardar la nota', 'error', 4000); }
   };
 
+  // Función para agregar estudio (usado tanto para nuevo como para edición)
   const agregarEstudio = async () => {
     if (!nuevoEstudio.descripcion.trim()) { addToast('Describe el estudio o referencia', 'warning', 3000, 'Campo requerido'); return; }
     setGuardandoEstudio(true);
     try {
-      await addDoc(collection(db, 'pacientes', pacienteId, 'estudios'), {
-        ...nuevoEstudio, estado: 'solicitado', timestamp: serverTimestamp(), autor: user?.nombre || 'Médico',
-      });
+      if (editandoEstudioId) {
+        // Actualizar estudio existente
+        await updateDoc(doc(db, 'pacientes', pacienteId, 'estudios', editandoEstudioId), {
+          ...nuevoEstudio,
+          fecha_actualizacion: serverTimestamp(),
+        });
+        setEditandoEstudioId(null);
+        addToast('Estudio actualizado', 'success', 3000, '✅');
+      } else {
+        // Crear nuevo estudio
+        await addDoc(collection(db, 'pacientes', pacienteId, 'estudios'), {
+          ...nuevoEstudio, estado: 'solicitado', timestamp: serverTimestamp(), autor: user?.nombre || 'Médico',
+        });
+        addToast('Estudio solicitado', 'success', 3000, '🧪 Estudio');
+      }
       setNuevoEstudio({ tipo: 'laboratorio', descripcion: '', prioridad: 'normal' });
-      addToast('Estudio solicitado', 'success', 3000, '🧪 Estudio');
-    } catch (err) { console.error('Error agregando estudio:', err); addToast('Error al solicitar estudio', 'error', 4000); }
+    } catch (err) { console.error('Error guardando estudio:', err); addToast('Error al guardar estudio', 'error', 4000); }
     finally { setGuardandoEstudio(false); }
+  };
+
+  // Cargar estudio en el formulario para editar
+  const editarEstudio = (estudio) => {
+    setEditandoEstudioId(estudio.id);
+    setNuevoEstudio({
+      tipo: estudio.tipo,
+      descripcion: estudio.descripcion,
+      prioridad: estudio.prioridad,
+    });
+    addToast('Editando estudio', 'info', 2000);
+  };
+
+  // Eliminar estudio
+  const eliminarEstudio = async (estudioId) => {
+    if (!window.confirm('¿Eliminar este estudio?')) return;
+    try {
+      await deleteDoc(doc(db, 'pacientes', pacienteId, 'estudios', estudioId));
+      addToast('Estudio eliminado', 'success', 3000, '🗑️ Eliminado');
+    } catch (err) { console.error('Error eliminando estudio:', err); addToast('Error al eliminar estudio', 'error', 4000); }
+  };
+
+  // Agregar estudio sugerido por IA
+  const agregarEstudioSugerido = async (estudioSugerido) => {
+    try {
+      await addDoc(collection(db, 'pacientes', pacienteId, 'estudios'), {
+        tipo: estudioSugerido.tipo,
+        descripcion: estudioSugerido.descripcion,
+        prioridad: estudioSugerido.prioridad || 'normal',
+        estado: 'solicitado',
+        timestamp: serverTimestamp(),
+        autor: user?.nombre || 'Médico',
+      });
+      // Quitar de la lista de sugeridos
+      setEstudiosSugeridos(prev => prev.filter((_, idx) => idx !== prev.indexOf(estudioSugerido)));
+      addToast('Estudio sugerido agregado', 'success', 3000, '🧪');
+    } catch (err) { console.error('Error agregando estudio sugerido:', err); addToast('Error al agregar', 'error', 4000); }
+  };
+
+  // Descartar un estudio sugerido
+  const descartarEstudioSugerido = (index) => {
+    setEstudiosSugeridos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Descartar todos los estudios sugeridos
+  const descartarTodosSugeridos = () => {
+    setEstudiosSugeridos([]);
   };
 
   const cambiarEstadoEstudio = async (estudio, nuevoEstado) => {
@@ -479,12 +542,33 @@ export default function Consulta() {
       {activeTab === 'estudios' && (
         <div className="card">
           <h3 className="section-title">🧪 Estudios y Referencias</h3>
+
+          {/* Estudios sugeridos por IA */}
+          {estudiosSugeridos.length > 0 && (
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#F0F9FF', borderRadius: '12px', border: '1px solid #BAE6FD' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 600, fontSize: '13px', color: '#0369A1' }}>🤖 Estudios sugeridos por IA</span>
+                <button onClick={descartarTodosSugeridos} className="btn btn-ghost btn-sm" style={{ color: '#0369A1' }}>Descartar todos</button>
+              </div>
+              {estudiosSugeridos.map((est, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid #E0F2FE' }}>
+                  <span style={{ flex: 1, fontSize: '13px' }}>{est.descripcion} <span style={{ color: '#6B7280' }}>({est.tipo}) {est.prioridad === 'urgente' && '⚡'}</span></span>
+                  <button onClick={() => agregarEstudioSugerido(est)} className="btn btn-sm btn-primary" title="Agregar estudio"><Plus size={14} /></button>
+                  <button onClick={() => descartarEstudioSugerido(idx)} className="btn btn-sm btn-ghost" title="Descartar"><X size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
             <div><label className="label">Tipo</label><select value={nuevoEstudio.tipo} onChange={(e) => setNuevoEstudio(prev => ({ ...prev, tipo: e.target.value }))} className="input-modern"><option value="laboratorio">🧫 Laboratorio</option><option value="gabinete">🩻 Gabinete</option><option value="interconsulta">👨‍⚕️ Interconsulta</option><option value="referencia">🚑 Referencia</option></select></div>
             <div><label className="label">Prioridad</label><select value={nuevoEstudio.prioridad} onChange={(e) => setNuevoEstudio(prev => ({ ...prev, prioridad: e.target.value }))} className="input-modern"><option value="normal">Normal</option><option value="urgente">Urgente</option></select></div>
             <div style={{ gridColumn: '1 / -1' }}><label className="label">Descripción</label><input type="text" value={nuevoEstudio.descripcion} onChange={(e) => setNuevoEstudio(prev => ({ ...prev, descripcion: e.target.value }))} placeholder="Ej: Hemograma completo, Rx de tórax..." className="input-modern" /></div>
           </div>
-          <button onClick={agregarEstudio} disabled={guardandoEstudio} className="btn btn-primary" style={{ marginBottom: '16px' }}>{guardandoEstudio ? 'Guardando...' : '➕ Solicitar estudio'}</button>
+          <button onClick={agregarEstudio} disabled={guardandoEstudio} className="btn btn-primary" style={{ marginBottom: '16px' }}>
+            {editandoEstudioId ? '💾 Guardar cambios' : '➕ Solicitar estudio'}
+          </button>
+
           {estudios.length === 0 ? <div className="empty-state"><div className="empty-state-icon">🧪</div><p className="empty-state-text">No hay estudios solicitados</p></div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {estudios.map(est => (
@@ -498,6 +582,8 @@ export default function Consulta() {
                     {est.estado === 'solicitado' && <button onClick={() => cambiarEstadoEstudio(est, 'realizado')} className="btn btn-sm btn-secondary">✓ Realizado</button>}
                     {est.estado === 'realizado' && <button onClick={() => cambiarEstadoEstudio(est, 'entregado')} className="btn btn-sm btn-primary">📤 Entregado</button>}
                     {est.estado !== 'cancelado' && <button onClick={() => cambiarEstadoEstudio(est, 'cancelado')} className="btn btn-sm btn-danger">Cancelar</button>}
+                    <button onClick={() => editarEstudio(est)} className="btn btn-sm btn-ghost" title="Editar"><Pencil size={14} /></button>
+                    <button onClick={() => eliminarEstudio(est.id)} className="btn btn-sm btn-danger" title="Eliminar"><Trash2 size={14} /></button>
                   </div>
                 </div>
               ))}
