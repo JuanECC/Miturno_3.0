@@ -12,6 +12,8 @@ import Configuracion from '../pages/Configuracion';
 import HistorialClinico from '../pages/HistorialClinico';
 import PacientesActivos from '../pages/PacientesActivos';
 import Citas from '../pages/Citas';
+import Consulta from '../pages/Consulta'; 
+import ExpedientePaciente from '../pages/ExpedientePaciente';
 
 export const router = createBrowserRouter([
   // ── LOGIN (público) ──
@@ -86,7 +88,17 @@ export const router = createBrowserRouter([
       { index: true, element: <Pantalla /> },
     ],
   },
-
+{
+  path: '/expediente/:pacienteId',
+  element: (
+    <ProtectedRoute allowedRoles={['admin', 'recepcionista', 'doctor']}>
+      <MainLayout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { index: true, element: <ExpedientePaciente /> },
+  ],
+},
   // ── REDIRECCIONES ──
   { path: '/', element: <Navigate to="/login" replace /> },
   { path: '*', element: <Navigate to="/login" replace /> },

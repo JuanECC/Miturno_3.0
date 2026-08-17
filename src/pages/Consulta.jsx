@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../firebase/config';
 import {
-  doc, getDoc, updateDoc, serverTimestamp,
+  doc, getDoc, updateDoc, setDoc, serverTimestamp, increment,
   collection, addDoc, query, where, onSnapshot,
   orderBy, limit, getDocs, deleteDoc
 } from 'firebase/firestore';
@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/Toast';
 import BuscadorCIE10 from '../components/BuscadorCIE10';
 import ModalCamas from '../components/ModalCamas';
-import { generarNotaMedica } from '../services/iaService';
+import { generarNotaMedica } from '../services/iaNotaMedica';
 import {
   ArrowLeft, Activity, ClipboardList, FileText,
   Pill, FlaskConical, History, X, CheckCircle2, RotateCcw,
@@ -163,11 +163,11 @@ export default function Consulta() {
 
   const guardarHistoria = async () => {
     try {
-      await updateDoc(doc(db, 'pacientes', pacienteId, 'historia_clinica', 'actual'), {
+      await setDoc(doc(db, 'pacientes', pacienteId, 'historia_clinica', 'actual'), {
         ...historia,
         actualizado_en: serverTimestamp(),
         autor: user?.nombre || 'Médico',
-      });
+      }, { merge: true });
       addToast('Historia clínica guardada', 'success', 3000, '✅');
     } catch (err) { console.error('Error guardando historia:', err); addToast('Error al guardar', 'error', 3000); }
   };
@@ -257,13 +257,78 @@ export default function Consulta() {
     } catch (err) { console.error('Error guardando nota:', err); addToast('Error al guardar la nota', 'error', 4000); }
   };
 
-  // Función para agregar estudio (usado tanto para nuevo como para edición)
+  // ✅ NUEVO: Guardar episodio completo en historial/{pacienteId}/episodios
+  const guardarEpisodioEnHistorial = async (destinoFinal) => {
+    if (!paciente) return;
+
+    try {
+      const episodioData = {
+        fechaIngreso: paciente.fecha_ingreso || serverTimestamp(),
+        fechaAtencion: serverTimestamp(),
+        destino: destinoFinal,
+        nivel: paciente.nivel_prioridad,
+        especialidad: paciente.especialidad,
+        motivo: paciente.motivo,
+        signosVitales: paciente.vitales || {},
+        signosAlarma: paciente.signosAlarma || [],
+        diagnostico_cie10: diagnosticoPrincipal,
+        diagnostico_descripcion: diagnosticos.map(d => d.descripcion).join(', '),
+        historia_clinica: {
+          padecimiento: historia.padecimiento,
+          antecedentes: historia.antecedentes,
+          exploracion: historia.exploracion,
+        },
+        nota_medica: notaGenerada || '',
+        indicaciones: indicaciones.filter(i => i.estado === 'abierta').map(i => ({
+          medicamento: i.medicamento,
+          dosis: i.dosis,
+          via: i.via,
+          frecuencia: i.frecuencia,
+          estado: i.estado,
+        })),
+        estudios: estudios.map(e => ({
+          tipo: e.tipo,
+          descripcion: e.descripcion,
+          prioridad: e.prioridad,
+          estado: e.estado,
+        })),
+        seguimiento: seguimientos.map(s => ({
+          nota: s.nota,
+          vitales: s.vitales,
+          autor: s.autor,
+          timestamp: s.timestamp,
+        })),
+        medico: user?.nombre || user?.email,
+      };
+
+      // Actualizar el documento del paciente en historial
+      await setDoc(
+        doc(db, 'historial', pacienteId),
+        {
+          nombre: paciente.nombre,
+          edad: paciente.edad,
+          especialidad: paciente.especialidad,
+          fechaUltimaVisita: serverTimestamp(),
+          totalEpisodios: increment(1),
+        },
+        { merge: true }
+      );
+
+      // Agregar episodio a la subcolección
+      await addDoc(collection(db, 'historial', pacienteId, 'episodios'), episodioData);
+
+      addToast('Episodio guardado en historial clínico', 'success', 3000, '📋');
+    } catch (err) {
+      console.error('Error guardando episodio en historial:', err);
+      addToast('Error al guardar en historial', 'error', 4000);
+    }
+  };
+
   const agregarEstudio = async () => {
     if (!nuevoEstudio.descripcion.trim()) { addToast('Describe el estudio o referencia', 'warning', 3000, 'Campo requerido'); return; }
     setGuardandoEstudio(true);
     try {
       if (editandoEstudioId) {
-        // Actualizar estudio existente
         await updateDoc(doc(db, 'pacientes', pacienteId, 'estudios', editandoEstudioId), {
           ...nuevoEstudio,
           fecha_actualizacion: serverTimestamp(),
@@ -271,7 +336,6 @@ export default function Consulta() {
         setEditandoEstudioId(null);
         addToast('Estudio actualizado', 'success', 3000, '✅');
       } else {
-        // Crear nuevo estudio
         await addDoc(collection(db, 'pacientes', pacienteId, 'estudios'), {
           ...nuevoEstudio, estado: 'solicitado', timestamp: serverTimestamp(), autor: user?.nombre || 'Médico',
         });
@@ -282,7 +346,6 @@ export default function Consulta() {
     finally { setGuardandoEstudio(false); }
   };
 
-  // Cargar estudio en el formulario para editar
   const editarEstudio = (estudio) => {
     setEditandoEstudioId(estudio.id);
     setNuevoEstudio({
@@ -293,7 +356,6 @@ export default function Consulta() {
     addToast('Editando estudio', 'info', 2000);
   };
 
-  // Eliminar estudio
   const eliminarEstudio = async (estudioId) => {
     if (!window.confirm('¿Eliminar este estudio?')) return;
     try {
@@ -302,7 +364,6 @@ export default function Consulta() {
     } catch (err) { console.error('Error eliminando estudio:', err); addToast('Error al eliminar estudio', 'error', 4000); }
   };
 
-  // Agregar estudio sugerido por IA
   const agregarEstudioSugerido = async (estudioSugerido) => {
     try {
       await addDoc(collection(db, 'pacientes', pacienteId, 'estudios'), {
@@ -313,18 +374,15 @@ export default function Consulta() {
         timestamp: serverTimestamp(),
         autor: user?.nombre || 'Médico',
       });
-      // Quitar de la lista de sugeridos
       setEstudiosSugeridos(prev => prev.filter((_, idx) => idx !== prev.indexOf(estudioSugerido)));
       addToast('Estudio sugerido agregado', 'success', 3000, '🧪');
     } catch (err) { console.error('Error agregando estudio sugerido:', err); addToast('Error al agregar', 'error', 4000); }
   };
 
-  // Descartar un estudio sugerido
   const descartarEstudioSugerido = (index) => {
     setEstudiosSugeridos(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Descartar todos los estudios sugeridos
   const descartarTodosSugeridos = () => {
     setEstudiosSugeridos([]);
   };
@@ -353,25 +411,47 @@ export default function Consulta() {
   };
 
   const finalizarAtencion = (destino) => {
-    if (destino === 'ALTA') {
-      navigate('/doctor');
-      return;
-    }
     setDestinoSeleccionado(destino);
-    setMostrarModalCamas(true);
+    if (destino === 'ALTA') {
+      confirmarDestino(destino);
+    } else {
+      setMostrarModalCamas(true);
+    }
   };
 
-  const confirmarDestino = async () => {
+  const confirmarDestino = async (destinoFinal) => {
+    const destinoUsar = destinoFinal || destinoSeleccionado;
     try {
+      // Liberar cama anterior si el paciente se va de alta o traslado
+      if (paciente.cama_asignada && (destinoUsar === 'ALTA' || destinoUsar === 'TRASLADO')) {
+        try {
+          await updateDoc(doc(db, 'camas', paciente.cama_asignada), {
+            ocupada: false,
+            paciente_id: null
+          });
+          console.log('🛏️ Cama liberada:', paciente.cama_asignada);
+        } catch (err) {
+          console.error('Error liberando cama:', err);
+        }
+      }
+
+      // ✅ Guardar episodio completo en historial clínico
+      await guardarEpisodioEnHistorial(destinoUsar);
+
+      // Actualizar estado del paciente en colección operativa
       await updateDoc(doc(db, 'pacientes', pacienteId), {
-        estado: destinoSeleccionado === 'ALTA' ? 'alta' : destinoSeleccionado.toLowerCase(),
-        ubicacion_actual: destinoSeleccionado,
+        estado: destinoUsar === 'ALTA' ? 'alta' : destinoUsar.toLowerCase(),
+        ubicacion_actual: destinoUsar,
         fecha_atencion: serverTimestamp(),
         atendido_por: user?.nombre || user?.email,
       });
+
       addToast('Atención finalizada', 'success', 3000, '✅');
       navigate('/doctor');
-    } catch (err) { console.error('Error finalizando:', err); addToast('Error al finalizar', 'error', 3000); }
+    } catch (err) {
+      console.error('Error finalizando:', err);
+      addToast('Error al finalizar', 'error', 3000);
+    }
   };
 
   if (!paciente) {
@@ -543,7 +623,6 @@ export default function Consulta() {
         <div className="card">
           <h3 className="section-title">🧪 Estudios y Referencias</h3>
 
-          {/* Estudios sugeridos por IA */}
           {estudiosSugeridos.length > 0 && (
             <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#F0F9FF', borderRadius: '12px', border: '1px solid #BAE6FD' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -633,7 +712,7 @@ export default function Consulta() {
         onAsignar={(cama) => {
           setCamaAsignada(cama);
           setMostrarModalCamas(false);
-          confirmarDestino();
+          confirmarDestino(destinoSeleccionado);
         }}
       />
     </div>

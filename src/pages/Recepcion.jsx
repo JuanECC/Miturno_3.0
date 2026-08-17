@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, getDocs,
 import { calcularTriage, camposPorEspecialidad, NIVEL_INFO } from '../utils/triage';
 import { Activity, SlidersHorizontal, Calendar, Clock, XCircle, UserPlus } from 'lucide-react';
 import { useToast } from '../components/Toast';
-import { sugerirTriageIA } from '../services/iaService.js';
+import { sugerirTriageIA } from '../services/iaTriage';
 import Mito from '../components/Mito';
 
 
