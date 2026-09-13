@@ -50,18 +50,11 @@ export default function HistorialClinico() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="card" style={{ padding: '16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label className="label">Buscar paciente</label>
-            <input
-              type="text"
-              value={buscar}
-              onChange={e => setBuscar(e.target.value)}
-              placeholder="Nombre..."
-              className="input-modern"
-            />
+            <input type="text" value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Nombre..." className="input-modern" />
           </div>
           <div style={{ minWidth: '180px' }}>
             <label className="label">Especialidad</label>

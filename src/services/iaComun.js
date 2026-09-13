@@ -1,24 +1,20 @@
 export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Modelos en orden de preferencia: el primero es el que más usas y luego respaldos estables
 export const MODELOS_FALLBACK = [
-  'gemini-3.1-flash-lite', // Tu modelo principal que funciona
-  'gemini-1.5-flash',      // Respaldo estable
-  'gemini-1.5-flash-8b',   // Respaldo ligero y rápido
+  'gemini-3.1-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
 ];
 
 export const PROMPT_ROL = `Eres un asistente clínico experimentado en urgencias y consulta externa, trabajando dentro del sistema MiTurno. Tu función es ayudar al médico a documentar y clasificar, no sustituir su juicio. Nunca inventes información que no se te proporcione. Si un dato falta, indícalo claramente. Sé conciso y usa lenguaje médico estándar en español de México.`;
 
-// Esperar X milisegundos
 export const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Recortar texto para evitar saturar el prompt
 export const truncar = (texto, max = 500) => {
   if (!texto) return '';
   return texto.length > max ? texto.substring(0, max) + '...' : texto;
 };
 
-// Fetch con reintentos para manejar 503/429
 export const fetchConReintentos = async (url, body, maxReintentos = 2) => {
   let ultimoError = null;
   for (let intento = 0; intento < maxReintentos; intento++) {
